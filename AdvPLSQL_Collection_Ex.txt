@@ -1,0 +1,315 @@
+Associative Array - Example
+-----------------------------------
+DECLARE
+  TYPE population_type IS TABLE OF NUMBER INDEX BY VARCHAR2(64);
+  country_population population_type;
+  continent_population population_type;
+  howmany NUMBER;
+  which VARCHAR2(64);
+BEGIN
+  country_population('Greenland') := 100000;
+  country_population('Iceland') := 750000;
+  howmany := country_population('Greenland');
+  DBMS_OUTPUT.PUT_LINE('How many in Greenland' || howmany);
+  continent_population('Australia') := 30000000;
+  continent_population('Antarctica') := 1000; -- Creates new entry
+  continent_population('Antarctica') := 1001; -- Replaces previous value
+  which := continent_population.FIRST; -- Returns 'Antarctica'
+-- as that comes first alphabetically.
+  which := continent_population.LAST; -- Returns 'Australia'
+  howmany := continent_population(continent_population.LAST);
+-- Returns the value corresponding to the last key, in this
+-- case the population of Australia.
+  DBMS_OUTPUT.PUT_LINE('Which   :' || which);
+  DBMS_OUTPUT.PUT_LINE('How many:' || howmany);
+  DBMS_OUTPUT.PUT_LINE('first Country Population   :' || country_population.First);
+END;
+/
+Example of Nested Table ---Count
+DECLARE
+   TYPE NumList IS TABLE OF NUMBER;
+   n NumList := NumList(2,4,6,8); -- Collection starts with 4 elements.
+BEGIN
+   DBMS_OUTPUT.PUT_LINE('There are ' || n.COUNT || ' elements in N.');
+   n.EXTEND(3); -- Add 3 new elements at the end.
+   DBMS_OUTPUT.PUT_LINE('Now there are ' || n.COUNT || ' elements in N.');
+   n := NumList(86,99); -- Assign a completely new value with 2 elements.
+   DBMS_OUTPUT.PUT_LINE('Now there are ' || n.COUNT || ' elements in N.');
+   n.TRIM(2); -- Remove the last 2 elements, leaving none.
+   DBMS_OUTPUT.PUT_LINE('Now there are ' || n.COUNT || ' elements in N.');
+END;
+/
+
+--Loop example
+DECLARE
+   TYPE salary IS TABLE OF NUMBER INDEX BY VARCHAR2(20);
+   salary_list salary;
+   name   VARCHAR2(20);
+BEGIN
+   -- adding elements to the table
+   salary_list('Rajnish')  := 62000;
+   salary_list('Minakshi')  := 75000;
+   salary_list('Martin') := 100000;
+   salary_list('James') := 78000;
+
+   -- printing the table
+   name := salary_list.FIRST;
+   WHILE name IS NOT null LOOP
+      dbms_output.put_line
+      ('Salary of ' || name || ' is ' || TO_CHAR(salary_list(name)));
+      name := salary_list.NEXT(name);
+   END LOOP;
+END;
+/
+
+----first/Last
+DECLARE
+   TYPE NumList IS TABLE OF NUMBER;
+   n NumList := NumList(1,3,5,7);
+   counter INTEGER;
+BEGIN
+   DBMS_OUTPUT.PUT_LINE('N''s first subscript is ' || n.FIRST);
+   DBMS_OUTPUT.PUT_LINE('N''s last subscript is ' || n.LAST);
+-- When the subscripts are consecutive starting at 1, 
+-- it's simple to loop through them.
+   FOR i IN n.FIRST .. n.LAST
+   LOOP
+      DBMS_OUTPUT.PUT_LINE('Element #' || i || ' = ' || n(i));
+   END LOOP;
+   n.DELETE(2); -- Delete second element.
+-- When the subscripts have gaps or the collection might be uninitialized,
+-- the loop logic is more extensive. We start at the first element, and
+-- keep looking for the next element until there are no more.
+   IF n IS NOT NULL THEN
+      counter := n.FIRST;
+      WHILE counter IS NOT NULL
+      LOOP
+         DBMS_OUTPUT.PUT_LINE('Element #' || counter || ' = ' || n(counter));
+         counter := n.NEXT(counter);
+      END LOOP;
+   ELSE
+      DBMS_OUTPUT.PUT_LINE('N is null, nothing to do.');
+   END IF;
+END;
+/
+---------
+declare
+    type names is table of staff_master.staff_name%type index by binary_integer;
+    all_names names;
+    cursor c1 is select staff_name from staff_master;
+begin
+   open c1;
+    FETCH c1 BULK COLLECT INTO all_names;
+   close c1;
+    dbms_output.put_line('All names collected---------------> Count is :'||all_names.COUNT);
+    dbms_output.put_line('Lets print some names.....');
+    dbms_output.put_line(all_names(1)||'         '||all_names(2)||'         '||all_names(3));
+end;
+
+
+declare
+    type names is table of staff_master.staff_name%type index by binary_integer;
+    all_names names;
+    cursor c1 is select staff_name from staff_master;
+begin
+   open c1;
+    FETCH c1 BULK COLLECT INTO all_names;
+   close c1;
+    dbms_output.put_line('First :'|| all_names.First);
+    dbms_output.put_line('Last :'|| all_names.Last);
+end;
+----
+DECLARE
+   TYPE salary IS TABLE OF NUMBER INDEX BY VARCHAR2(20);
+   salary_list salary;
+   name   VARCHAR2(20);
+BEGIN
+   -- adding elements to the table
+   salary_list('Rajnish')  := 62000;
+   salary_list('Minakshi')  := 75000;
+   salary_list('Martin') := 100000;
+   salary_list('James') := 78000;
+
+   -- printing the table
+   name := salary_list.FIRST;
+--   WHILE name IS NOT null LOOP
+      dbms_output.put_line
+      ('Salary of ' || name || ' is ' || TO_CHAR(salary_list(name)));
+   name := salary_list.Last;
+      dbms_output.put_line
+      ('Last Salary of ' || name || ' is ' || TO_CHAR(salary_list(name)));
+--   END LOOP;
+    name := salary_list.Prior(name);
+      dbms_output.put_line
+      ('Prior Last Salary of ' || name || ' is ' || TO_CHAR(salary_list(name)));
+END;
+
+----Delete
+DECLARE
+   TYPE NumList IS TABLE OF INTEGER;
+   n NumList := NumList(1,3,5,7);
+BEGIN
+   n.DELETE(2); -- Delete the second element
+   IF n.EXISTS(1) THEN
+      DBMS_OUTPUT.PUT_LINE('OK, element #1 exists.');
+   END IF;
+   IF n.EXISTS(2) = FALSE THEN
+      DBMS_OUTPUT.PUT_LINE('OK, element #2 has been deleted.');
+   END IF;
+   IF n.EXISTS(99) = FALSE THEN
+      DBMS_OUTPUT.PUT_LINE('OK, element #99 does not exist at all.');
+   END IF;
+END;
+/
+--Prior/Next
+DECLARE
+   TYPE NumList IS TABLE OF NUMBER;
+   n NumList := NumList(1966,1971,1984,1989,1999);
+BEGIN
+   DBMS_OUTPUT.PUT_LINE('The element after #2 is #' || n.NEXT(2));
+   DBMS_OUTPUT.PUT_LINE('The element before #2 is #' || n.PRIOR(2));
+   n.DELETE(3); -- Delete an element to show how NEXT can handle gaps.
+   DBMS_OUTPUT.PUT_LINE('Now the element after #2 is #' || n.NEXT(2));
+   IF n.PRIOR(n.FIRST) IS NULL THEN
+      DBMS_OUTPUT.PUT_LINE('Can''t get PRIOR of the first element or NEXT of the last.');
+   END IF;
+END;
+/
+--> Using Next
+DECLARE
+   TYPE NumList IS TABLE OF NUMBER;
+   n NumList := NumList(1,3,5,7);
+   counter INTEGER;
+BEGIN
+   n.DELETE(2); -- Delete second element.
+-- When the subscripts have gaps, the loop logic is more extensive. We start at
+-- the first element, and keep looking for the next element until there are no more.
+   counter := n.FIRST;
+   WHILE counter IS NOT NULL
+   LOOP
+      DBMS_OUTPUT.PUT_LINE('Counting up: Element #' || counter || ' = ' ||
+                             n(counter));
+      counter := n.NEXT(counter);
+   END LOOP;
+-- Run the same loop in reverse order.
+   counter := n.LAST;
+   WHILE counter IS NOT NULL
+   LOOP
+      DBMS_OUTPUT.PUT_LINE('Counting down: Element #' || counter || ' = ' ||
+                             n(counter));
+      counter := n.PRIOR(counter);
+   END LOOP;
+END;
+/
+---> Extend
+Using EXTEND to Increase the Size of a Collection
+DECLARE
+   TYPE NumList IS TABLE OF INTEGER;
+   n NumList := NumList(2,4,6,8);
+   x NumList := NumList(1,3);
+   PROCEDURE print_numlist(the_list NumList) IS
+      output VARCHAR2(128);
+   BEGIN
+      FOR i IN the_list.FIRST .. the_list.LAST
+      LOOP
+         output := output || NVL(TO_CHAR(the_list(i)),'NULL') || ' ';
+      END LOOP;
+      DBMS_OUTPUT.PUT_LINE(output);
+   END;
+BEGIN
+   DBMS_OUTPUT.PUT_LINE('At first, N has ' || n.COUNT || ' elements.');
+   n.EXTEND(5); -- Add 5 elements at the end.
+   DBMS_OUTPUT.PUT_LINE('Now N has ' || n.COUNT || ' elements.');
+-- Elements 5, 6, 7, 8, and 9 are all NULL.
+   print_numlist(n);
+   DBMS_OUTPUT.PUT_LINE('At first, X has ' || x.COUNT || ' elements.');
+   x.EXTEND(4,2); -- Add 4 elements at the end.
+   DBMS_OUTPUT.PUT_LINE('Now X has ' || x.COUNT || ' elements.');
+-- Elements 3, 4, 5, and 6 are copies of element #2.
+   print_numlist(x);
+END;
+/
+EXTEND appends one null element to a collection. 
+EXTEND(n) appends n null elements to a collection. 
+EXTEND(n,i) appends n copies of the ith element to a collection. 
+
+=================Nestest Tables
+  DECLARE
+       TYPE list_of_names_t IS TABLE OF VARCHAR2 (100);
+  
+       happyfamily   list_of_names_t := list_of_names_t ();
+       children      list_of_names_t := list_of_names_t ();
+       parents       list_of_names_t := list_of_names_t ();
+    BEGIN
+       happyfamily.EXTEND (4);
+       happyfamily (1) := 'Veva';
+      happyfamily (2) := 'Chris';
+      happyfamily (3) := 'Eli';
+      happyfamily (4) := 'Steven';
+ 
+      children.EXTEND;
+      children (children.LAST) := 'Chris';
+      children.EXTEND;
+      children (children.LAST) := 'Eli';
+ 
+      parents := happyfamily MULTISET EXCEPT children;
+ 
+      FOR l_row IN 1 .. parents.COUNT
+      LOOP
+         DBMS_OUTPUT.put_line (parents (l_row));
+      END LOOP;
+   END;
+
+--------Nested table as schema object
+Constructor
+
+DECLARE
+   TYPE CourseList IS TABLE OF VARCHAR2(16);
+   my_courses CourseList;
+BEGIN
+   my_courses :=
+      CourseList('Econ 2010', 'Acct 3401', 'Mgmt 3100');
+END;
+
+
+=================Varray
+==> Checking the Maximum Size of a Collection With LIMIT
+DECLARE
+   TYPE dnames_var IS VARRAY(7) OF VARCHAR2(30);
+   dept_names dnames_var := dnames_var('Shipping','Sales','Finance','Payroll');
+BEGIN
+   DBMS_OUTPUT.PUT_LINE('dept_names has ' || dept_names.COUNT 
+                        || ' elements now');
+   DBMS_OUTPUT.PUT_LINE('dept_names''s type can hold a maximum of ' 
+                         || dept_names.LIMIT || ' elements');
+   DBMS_OUTPUT.PUT_LINE('The maximum number you can use with ' 
+       || 'dept_names.EXTEND() is ' || (dept_names.LIMIT - dept_names.COUNT));
+END;
+/
+
+
+INSERT INTO Dep_desg VALUES
+ ('GE', DESGS_VA( 
+     DESG_TY( 'MANAGER' ),
+     DESG_TY( 'ASST.MGR' ),
+       DESG_TY( 'Sr.ENGR' ),
+	DESG_TY( 'Jr.ENGR’),
+	 DESG_TY( Null)));
+
+To retrieve
+DECLARE 
+	Cursor desg_cur is
+		   SELECT * from Dep_desg;
+	desg_rec desg_cur%rowtype;
+BEGIN
+	For desg_rec in desg_cur
+	LOOP
+Dbms_Output.Put_Line('Department : '|| desg_rec.dname );
+	  For i in 1..desg_rec.Desgs.Count
+	    LOOP	
+Dbms_Output.Put_Line( desg_Rec.Desgs(i).desg_name );
+	    End LOOP;
+	End LOOP;
+END;
+/
+

@@ -1,0 +1,165 @@
+--create temp_table(dept_code,name,location) -- as per dept master
+
+   DECLARE
+      dep_rec department_master%ROWTYPE;
+      TYPE dept_cur_type is ref cursor return department_master%rowtype;
+      dep_cur  dept_cur_type;  --Cursor variable.
+   BEGIN
+      open dep_cur for select * from department_master;
+      LOOP
+       fetch dep_cur into dep_rec;
+       exit when dep_cur%notfound;
+        insert into temp_table  (name) values(substr(dep_cur.dept_name,1,10));
+       dbms_output.put_line('INSERTED');
+      End Loop;
+         Close dep_cur;
+   END;
+----
+ CREATE OR REPLACE PACKAGE emp_data AS
+  TYPE EmpCurTyp IS REF CURSOR RETURN emp%ROWTYPE;
+  PROCEDURE open_emp_cur (emp_cur IN OUT EmpCurTyp);
+  END emp_data;
+  /
+CREATE OR REPLACE PACKAGE BODY emp_data AS PROCEDURE open_emp_cur (emp_cur IN OUT EmpCurTyp) IS
+BEGIN
+	OPEN emp_cur  FOR SELECT * FROM emp;
+	END open_emp_cur;
+	END emp_data;
+  	/
+------------CREATING CURSORS IN PACKAGES AND CALLING THEM ELSEWHERE----------
+CREATE or replace PACKAGE cv_types AS
+TYPE GenericCurTyp IS REF CURSOR;
+TYPE EmpCurTyp IS REF CURSOR RETURN emp%ROWTYPE;
+TYPE DeptCurTyp IS REF CURSOR RETURN dept%ROWTYPE;
+END cv_types;
+ /
+
+ CREATE or REPLACE PROCEDURE open_pro (generic_cv IN OUT  
+         cv_types.GenericCurTyp,choice IN NUMBER) IS
+ BEGIN 
+ IF choice = 1 THEN
+OPEN generic_cv FOR SELECT * FROM emp;
+  ELSIF choice = 2 THEN
+ OPEN generic_cv FOR SELECT * FROM dept;
+  ELSIF choice = 3 THEN
+OPEN generic_cv FOR SELECT * FROM item;
+   END IF;
+END open_pro;
+/
+
+SQL> EXECUTE OPEN_PRO(:CV,2);
+===============to show cursor variable can't be declared as part of package
+Create or replace package mypack is
+TYPE DeptCurTyp IS REF CURSOR RETURN deparment%ROWTYPE; 
+dept_cv DeptCurTyp; -- declare cursor variable 
+end;
+
+===========Strong ref cursor - Return clause using %ROWTYPE
+DECLARE
+TYPE TmpCurTyp IS REF CURSOR RETURN emp%ROWTYPE;
+tmp_cv TmpCurTyp; -- declare cursor variable
+
+TYPE EmpCurTyp IS REF CURSOR RETURN tmp_cv%rowTYPE;
+emp_cv EmpCurTyp; -- declare cursor variable
+begin
+null;
+end;
+/
+---likewise %Type in return clause
+DECLARE 
+dept_rec dept%ROWTYPE; -- declare record variable 
+TYPE DeptCurTyp IS REF CURSOR RETURN dept_rec%TYPE; 
+dept_cv DeptCurTyp; -- declare cursor variable
+begin
+	null;
+end;
+/
+---shows error if used for a variable with %type dec; can use only for variable with rowtype
+DECLARE 
+dept_rec department.dname%TYPE; -- declare scalar variable 
+TYPE DeptCurTyp IS REF CURSOR RETURN dept_rec%TYPE; 
+dept_cv DeptCurTyp; -- declare cursor variable
+begin
+dbms_output.put_line('hello');
+ end;
+/
+==========
+DECLARE
+TYPE EmpCurTyp IS REF CURSOR RETURN emp%ROWTYPE;
+X empcurtyp;
+Y emp%rowtype;
+PROCEDURE open_emp_cv (emp_cv IN OUT EmpCurTyp) IS
+Begin
+		open emp_cv for select * from emp;
+end;
+begin
+dbms_output.put_line('hello');
+open emp_cv(x);
+loop
+fetch x into y;
+exit when x%notfound;
+dbms_output.put_line(y.empno||y.ename);
+end loop;
+end;
+/
+==============
+WEAK :
+Here, the same cursor variable(abcd) is used for opening two completely different recordsets, since the cursor variable is of type WEAK, hence it’s structure is decided by the calling environment
+DECLARE
+X emp%rowtype;
+Y dept%rowtype;
+TYPE GenCurTyp IS REF CURSOR;
+abcd GenCurTyp;
+PROCEDURE open_emp_cv (emp_cv IN OUT GenCurTyp) IS
+Begin
+  		open emp_cv for select * from emp;
+  		loop
+      			fetch emp_cv into x;
+      			exit when emp_cv%notfound;
+      			dbms_output.put_line('emp number  '||x.empno||' emp name ' || x.ename||' Salary' ||x.sal);
+  		end loop;
+ 	end;
+PROCEDURE open_dept_cv (dept_cv IN OUT GenCurTyp) IS
+Begin
+  		open dept_cv for select * from dept;
+  		loop
+      			fetch dept_cv into y;
+      			exit when dept_cv%notfound;
+      			dbms_output.put_line('dept number '||y.deptno||' dept name ' || y.dname ||' location '||y.loc);
+  		end loop;
+ 	end;
+begin
+open_emp_cv(abcd);
+open_dept_cv(abcd);
+dbms_output.put_line('hello');
+end;
+/
+-------
+Cursor Variable Example: Manipulating Host Variables in SQL*Plus
+A host variable is a variable you declare in a host environment, then pass to one or more PL/SQL programs, which can use it like any other variable. In the SQL*Plus environment, to declare a host variable, use the command VARIABLE. For example, you declare a variable of type NUMBER as follows:
+VARIABLE return_code NUMBER
+
+To display the value of a host variable in SQL*Plus, use the PRINT command, as follows:
+SQL> PRINT return_code
+
+CREATE or Replace PACKAGE emp_data AS
+EmpRecTyp emp%rowtype;
+TYPE EmpCurTyp IS REF CURSOR RETURN EmpRecTyp%type;
+PROCEDURE get_staff (dept_no IN NUMBER, emp_cv IN OUT EmpCurTyp);
+END;
+/
+
+CREATE or replace PACKAGE BODY emp_data AS
+PROCEDURE get_staff(dept_no IN NUMBER, emp_cv IN OUT EmpCurTyp) IS
+BEGIN
+OPEN emp_cv FOR SELECT * FROM emp where deptno=dept_no ORDER BY empno;
+END;
+END;
+/
+
+The SQL*Plus datatype REFCURSOR lets you declare cursor variables, which you can use to return query results from stored subprograms. In the script below, you declare a host variable of type REFCURSOR. You use the SQL*Plus command SET AUTOPRINT ON to display the query results automatically.
+
+Set autoprint on;
+VARIABLE cv REFCURSOR;
+EXECUTE emp_data.get_staff(30, :cv)
+==============
