@@ -1,0 +1,265 @@
+desc all_directories
+desc dba_diretories
+
+Change of Data-type from varchar2 to clob or clob to varchar2 is not allowed :
+create table x(c1 varchar2(10));
+insert into x values('abc');
+
+alter table x modify c1 clob;
+This is not allowed and will give the following error :
+ORA-22858: invalid alteration of datatype
+
+create table y(c1 clob);
+insert into y values('abc');
+alter table y modify c1 varchar2(10);
+This is not allowed and will give the following error :
+ORA-22859: invalid modification of columns
+
+However, the following implicit conversions are supported by 10G
+insert into x select * from y;
+insert into y select * from x;
+
+drop table x;
+drop table y;
+
+Following alteration is allowed :
+create table x(c1 long);
+insert into x values('abc');
+alter table x modify c1 clob;
+
+However, following alteration not allowed :
+alter table x modify c1 long;
+ORA-22859: invalid modification of columns
+
+create table y(c1 clob);
+insert into y values('abc');
+alter table y modify c1 long;
+ORA-22859: invalid modification of columns
+
+You can alter from long datatype to clob, but not from clob to long.
+
+drop table x;
+drop table y;
+
+create table x(c1 long);
+insert into x values('abc');
+
+create table y(c1 clob);
+insert into y values('abc');
+
+The following is allowed :
+insert into x select * from y;
+
+But, the following is not allowed :
+insert into y select * from x;
+ORA-00997: illegal use of LONG datatype
+
+create table x(c1 long raw);
+insert into x values('abc');
+
+select * from x;
+
+create table y(c1 blob);
+insert into y values('abc');
+select * from y;
+
+Following is not allowed :
+insert into y select * from x;
+ORA-00997: illegal use of LONG datatype
+
+But, following is allowed :
+insert into x select * from y;
+
+select * from x;
+select * from y;
+
+Following alteration is allowed 
+alter table x modify c1 blob;
+select * from x;
+
+But, Following alteration is not allowed:
+alter table y modify c1 long raw
+ORA-22859: invalid modification of columns
+
+The TO_LOB function can be used to convert a LONG or LONG RAW value in a column to LOB value. You can use this in the SELECT list of a subquery in an INSERT statement.
+create table olddata(c long);
+insert into olddata values('hi how are you?');
+
+create table newdata(c clob);
+insert into newdata select * from olddata;
+This gives an error : ORA-00997: illegal use of LONG datatype
+
+insert into newdata select c from olddata;
+This gives an error : ORA-00997: illegal use of LONG datatype
+
+insert into newdata select to_lob(c) from olddata;
+-----Directory
+Create or replace Directory data_files as 'd:\photos';
+select owner, DIRECTORY_NAME,DIRECTORY_PATH from all_directories where directory_name='DATA_FILES';
+
+Create table emp_table(empid number, empname varchar2(30));
+Insert into employee values(1,'Ram');
+Insert into employee values(2,'Laxman');
+Alter table emp_table add video BFILE;
+
+Update emp_table set video=BFILENAME('lobdemo', 'Laptop_Details') where empid=1;
+Update emp_table set video=BFILENAME('data_files', 'video2.mp4') where empid=2;
+select * from emp_table;
+
+----Init bfile
+Create table newemp_table(empid number, empname varchar2(30), video BFILE);
+Insert into newemp_table values(1,'Ram', BFILENAME('lobdemo', 'Laptop_details.jpg'));
+Insert into newemp_table values(2,'Laxman', BFILENAME('data_files', 'video2.mp4'));
+---update BFILE column to null
+Update newemployee set video=null;
+Update newemp_table set video= bfilename('lobdemo', 'Laptop_details.jpg') where empid=1;
+Update newemployee set video= bfilename('data_files', 'video1.mp4') where empid=2;
+
+Update newemp_table set video= bfilename('lobdemo', 'Laptop_details.jpg') where empid=1;
+
+--BFILE operation using DBMS_LOB
+At the OS, create folder ‘D:\Photos’ containing video files ‘saloni.mp4’ and ‘hetal.mp4’ 
+
+create table employeenew(empid number, ename varchar2(20), video BFILE);
+ insert into employeenew(empid, ename) values(1,'saloni');
+insert into employeenew (empid, ename) values(2,'hetal');
+
+Create or replace Directory data_files as 'd:\photos';
+
+Create or Replace procedure set_video(dir_alias varchar2) is
+	Filename varchar2(40);
+	File_ptr BFILE;
+	Cursor csr is Select ename from newemp_table for update;
+Begin
+	For rec in csr loop
+		Filename:='Laptop_details.jpg';
+		File_ptr:=BFILENAME(dir_alias, filename);
+		DBMS_LOB.FILEOPEN(file_ptr);
+		Update newemp_table set video=file_ptr where current of csr;
+		Dbms_output.put_line('FILE '||filename||' SIZE '||dbms_lob.getlength(file_ptr));
+		DBMS_LOB.FILECLOSE(file_ptr);
+	End loop;
+End set_video;
+/
+EXEC set_video('DATA_FILES');
+=======To check BFile exists
+Create or Replace procedure setvideo(dir_alias varchar2) is
+		Filename varchar2(40);
+		File_ptr BFILE;
+		A boolean;
+		Cursor csr is Select empname from newemp_table for update;
+Begin
+		For rec in csr loop
+			Filename:=rec.ename || '.MP4';
+			File_ptr:=BFILENAME(dir_alias, filename);
+			a:=dbms_lob.fileexists(file_ptr)=1;
+		Dbms_output.put_line('Before checking');
+			If a then
+				DBMS_LOB.FILEOPEN(file_ptr);
+				Update newemp_table set video=file_ptr where current of csr;
+				Dbms_output.put_line('FILE '||filename||' SIZE '||dbms_lob.getlength(file_ptr));
+				DBMS_LOB.FILECLOSE(file_ptr);
+		Dbms_output.put_line('Inside IF - value of a is: ' || a);
+			Else
+		Dbms_output.put_line('Inside else - value of a is: ' || a);
+				Dbms_output.put_line('FILE not found for this employee' || rec.ename);
+			End if;
+		End loop;
+	commit;
+End setvideo;
+/
+EXEC setvideo('DATA_FILES');
+==========TO_CLOB : Converts LONG to CLOB through PLSQL
+create table x(c1 long, c2 varchar2(10), c3 char(10));
+insert into x values('abc', 'xyz','pqr');
+insert into x values('aaa', 'bbb','ccc');
+
+create table y(c1 clob, c2 clob, c3 clob);
+The following will give an error at the SQL-engine level
+		insert into y(c1) select to_clob(c1) from x;
+		ERROR at line 1:
+		ORA-00932: inconsistent datatypes: expected NUMBER got LONG
+Solution:
+declare
+			a long;
+		 	b clob;
+		begin
+			select c1 into a from x where c2='xyz';
+			b:=to_clob(a);
+			insert into y(c1) select b from dual;
+		end;
+ 		/
+select c1 from y;
+========
+This gives error as to_clob only works on plsql variables and not on columns of tables
+begin
+		insert into y(c1) select to_clob(c1) from x where c2='xyz';
+end;
+/
+==========
+---LOB columns get implicit nulls
+create table emp_lobs(empid number(6), name varchar2(10), resume clob, picture blob);
+insert into emp_lobs(empid, name) values(100,'A');
+---LOB columns get explicit nulls
+insert into emp_lobs values(101,'B', null, null);
+select count(*) from emp_lobs where resume is null;
+------Now, you can directly fetch a CLOB column by binding it to a character variable.
+declare
+		text varchar2(100);
+	begin
+		select resume into text from emp_hiredata where employee_id=405 for update;
+		text:=text||’ PLSQL’;
+		update emp_hiredata set resume=text where employee_id=405;
+		select resume into text from emp_hiredata where employee_id=170 for update;
+		text:=text||’ ADV PLSQL’;
+		update emp_hiredata set resume=text where employee_id=170;
+		commit;
+	end;
+	/
+ select resume from emp_hiredata;
+--------
+In oracle 10g, CLOB values are implicitly converted to varchar2. In prior versions, you first retrieved the CLOB locator value from the column into a CLOB variable, and then read the LOB contents specifying the amount and offset in the DBMS_LOB.READ procedure as follows :
+	declare
+		Rlob clob;
+		Text varchar2(2000);
+		Amt number:=4;
+		Offset number:=3;
+	begin
+		Select resume into rlob from emp_hiredata where employee_id=170;
+		DBMS_LOB.READ(rlob, amt, offset, text);
+		DBMS_OUTPUT.PUT_LINE('TEXT is '|| text);
+	End;
+	/
+====
+You can delete a row containing LOBs :
+		Delete from emp_hiredata where employee_id=405;
+Disassociation of a LOB value from a row :
+	Update emp_hiredata set resume=empty_clob() where employee_id=170;
+	Select count(*) from emp_hiredata where resume is null;
+	Or
+	Update emp_hiredata set resume=null where employee_id=405;
+	Select count(*) from emp_hiredata where resume is null;
+	Or
+	Update emp_hiredata set resume=’’ where employee_id=170;
+	Select count(*) from emp_hiredata where resume is null;
+ Thus, to destroy only the reference to the LOB, you must update the row by replacing the LOB column value with NULL or an empty string(‘’), or by using the empty_clob()/empty_blob() function.
+========blob - storing image in oracle database
+create table loadalbum(name varchar2(100), image blob);
+CREATE OR REPLACE DIRECTORY DOCUMENTS AS 'd:\photos';
+ 
+declare
+    	l_blob    blob;
+    	l_bfile    bfile;
+begin
+		insert into loadalbum values ('saloni', EMPTY_BLOB()) returning image into l_blob;    
+		-- First create a Empty binary large object and get a reference
+     	l_bfile := bfilename('DOCUMENTS', 'salonig.jpg' );  
+		--Get the pointer to a file in directory
+    	dbms_lob.fileopen(l_bfile );                                       
+		-- Open file
+    	dbms_lob.loadfromfile( l_blob, l_bfile, dbms_lob.getlength( l_bfile ) );   
+		--loads bfile data into internal lob
+    	dbms_lob.fileclose( l_bfile );
+		--closes the file
+end;
+/
